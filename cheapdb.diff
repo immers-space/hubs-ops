@@ -1,0 +1,80 @@
+commit 8c6aeff4481bfd961741de6a9ad2cf8a5e29533a
+Author: Will Murphy <william@datatitian.com>
+Date:   Mon Jun 21 23:14:39 2021 -0500
+
+    working cheap database option!
+
+diff --git a/cloudformation/stack.yaml b/cloudformation/stack.yaml
+index 6ed6dc9..9698100 100644
+--- a/cloudformation/stack.yaml
++++ b/cloudformation/stack.yaml
+@@ -4568,7 +4568,7 @@ Resources:
+         Ref: AppDbSecret
+       TargetId:
+         Ref: AppDb
+-      TargetType: AWS::RDS::DBCluster
++      TargetType: AWS::RDS::DBInstance
+   AppDbSecretResourcePolicy:
+     Type: AWS::SecretsManager::ResourcePolicy
+     Properties:
+@@ -4612,20 +4612,25 @@ Resources:
+         - Ref: AWS::Region
+         - Ref: AWS::NoValue
+   AppDb:
+-    Type: AWS::RDS::DBCluster
++    Type: AWS::RDS::DBInstance
+     Properties:
+-      AvailabilityZones:
+-      - Fn::GetAtt: SubnetAPrivate.AvailabilityZone
+-      - Fn::GetAtt: SubnetBPrivate.AvailabilityZone
++      AllocatedStorage: 20
++      AvailabilityZone:
++        Fn::GetAtt: SubnetAPrivate.AvailabilityZone
+       BackupRetentionPeriod:
+         Ref: DbBackupRetentionPeriod
+-      DatabaseName: polycosm_production
+-      DBClusterIdentifier:
++      DBInstanceClass: db.t3.micro
++      DBInstanceIdentifier:
+         Fn::Sub: ${AWS::StackName}-app-db
++      DBName: polycosm_production
++      DBSnapshotIdentifier:
++        Fn::If:
++        - IsRestore
++        - Ref: RestoreDbSnapshotIdentifier
++        - Ref: AWS::NoValue
+       DBSubnetGroupName:
+         Ref: AppDbSubnet
+-      Engine: aurora-postgresql
+-      EngineMode: serverless
++      Engine: postgres
+       EngineVersion: 10.7
+       KmsKeyId:
+         Fn::If:
+@@ -4651,25 +4656,7 @@ Resources:
+           - - '{{resolve:secretsmanager:'
+             - Ref: AppDbSecret
+             - :SecretString:password}}
+-      ScalingConfiguration:
+-        AutoPause:
+-          Fn::If:
+-          - IsOffline
+-          - true
+-          - Fn::If:
+-            - EnableDbAutoPause
+-            - true
+-            - false
+-        MaxCapacity:
+-          Ref: DbMaxCapacity
+-        MinCapacity: 2
+-        SecondsUntilAutoPause: 300
+-      SnapshotIdentifier:
+-        Fn::If:
+-        - IsRestore
+-        - Ref: RestoreDbSnapshotIdentifier
+-        - Ref: AWS::NoValue
+-      VpcSecurityGroupIds:
++      VPCSecurityGroups:
+       - Ref: AppDbSecurityGroup
+       Tags:
+       - Key: Name
